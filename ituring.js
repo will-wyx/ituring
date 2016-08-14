@@ -9,7 +9,12 @@ app.use(express.static('views'));
 var host = 'www.ituring.com.cn';
 app.get('/logon', function (request, response) {
     var path = '/account/logon';
-    var getlogon = function () {
+
+    /**
+     * 请求token
+     * @param callback
+     */
+    var getlogon = function (callback) {
         var req = http.request({
             host: host,
             path: path,
@@ -17,40 +22,146 @@ app.get('/logon', function (request, response) {
         }, function (res) {
             res.setEncoding('utf8');
             var html = '';
+
             res.on('data', function (data) {
                 html += data;
             });
             res.on('end', function () {
-                jsdom.env(html, [], function (err, window) {
-                    var result = 'error';
-                    if(!err)
-                        result = window.document.getElementsByName('__RequestVerificationToken')[0].value;
-                    response.send(result);
+                callback({
+                    html: html,
+                    cookie: res.headers['set-cookie']
                 });
             });
         });
         req.end();
     };
-    var postlogon = function () {
-        (function () {
-            var req = http.request({
-                host: host,
-                path: path,
-                method: 'POST'
-            }, function (res) {
-                res.setEncoding('utf8');
-                res.on('data', function (data) {
-                    console.log(data);
-                });
-            });
-            req.write(querystring.stringify({
-                UserName: 'will_wyx',
-                Password: '900829'
-            }));
-            req.end();
-        })();
-    };
-    getlogon();
-});
 
+    /**
+     * 请求登录
+     * @param token
+     * @param callback
+     */
+    var postlogon = function (paras, callback) {
+        var req = http.request({
+            host: host,
+            path: path,
+            method: 'POST',
+            headers: {
+                "content-type": "application/x-www-form-urlencoded",
+                "cookie": paras.cookie
+            }
+        }, function (res) {
+            res.setEncoding('utf8');
+            var html = '';
+            res.on('data', function (data) {
+                html += data;
+            });
+            res.on('end', function () {
+                callback(res.headers['set-cookie']);
+            });
+        });
+        req.write(querystring.stringify({
+            __RequestVerificationToken: paras.token,
+            UserName: 'will_wyx',
+            Password: '900829',
+            RememberMe: true
+        }));
+        req.end();
+    };
+
+    var getuser = function (paras, callback) {
+        var req = http.request({
+            host: host,
+            path: '/users/' + paras.id,
+            method: 'GET',
+            headers: {
+                "cookie": paras.cookie
+            }
+        }, function (res) {
+            res.setEncoding('utf8');
+            var html = '';
+            res.on('data', function (data) {
+                html += data;
+            });
+            res.on('end', function () {
+                callback(html, paras.id);
+            });
+        });
+        req.end();
+    };
+
+    var postfollow = function (paras, callback) {
+        var req = http.request({
+            host: host,
+            path: '/users/follow/' + paras.id,
+            method: 'POST',
+            headers: {
+                "cookie": paras.cookie
+            }
+        }, function (res) {
+            res.setEncoding('utf8');
+            var html = '';
+            res.on('data', function (data) {
+                html += data;
+            });
+            res.on('end', function () {
+                callback(html);
+            });
+        });
+        req.end();
+    };
+
+    getlogon(function (paras) {
+        jsdom.env(paras.html, [], function (err, window) {
+            if (!err) {
+                var token = window.document.getElementsByName('__RequestVerificationToken')[0].value;
+                var cookie = paras.cookie;
+                postlogon({
+                    token: token,
+                    cookie: cookie
+                }, function (result) {
+                    var reg = /\.AUTH=(\w+);/;
+                    // 登录成功COOKIE
+                    var auth = '';
+                    for (var i in result) {
+                        var item = result[i];
+                        var regres = reg.exec(item);
+                        if (regres) {
+                            auth = (regres[1]);
+                        }
+                    }
+                    for (var uid = 4576; uid < 4586; ++uid) {
+                        getuser({
+                            id: uid,
+                            cookie: '.AUTH=' + auth + ';'
+                        }, function (userhtml, uid) {
+                            var reg = new RegExp('<a data-ajax="true" data-ajax-method="post" data-ajax-mode="replace" data-ajax-update="#follow-' + uid + '" href="/users/follow/' + uid + '">加关注</a>')
+                            jsdom.env(userhtml, [], function (error, window) {
+                                if (!error) {
+                                    var element = window.document.getElementById('follow-' + uid);
+                                    if (element) {
+                                        var follow = element.innerHTML;
+                                        if (reg.test(follow)) {
+                                            // 加关注
+                                            postfollow({
+                                                id: uid,
+                                                cookie: '.AUTH=' + auth + ';'
+                                            }, function (followres) {
+                                                console.log(followres);
+                                            });
+                                        } else {
+                                            console.log(uid);
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                    }
+                    response.send('followd');
+
+                });
+            }
+        });
+    });
+});
 app.listen(3000);
