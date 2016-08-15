@@ -69,7 +69,7 @@ app.get('/logon', function (request, response) {
         req.end();
     };
 
-    var getuser = function (paras, callback) {
+    var getuser = function (paras, callback, count) {
         var req = http.request({
             host: host,
             path: '/users/' + paras.id,
@@ -86,6 +86,14 @@ app.get('/logon', function (request, response) {
             res.on('end', function () {
                 callback(html, paras.id);
             });
+        });
+        req.on('error', function(){
+            if(count < 10) {
+                console.log('error ' + count++);
+                getuser(paras, callback, count);
+            } else {
+                console.log('getuser ' + paras.id);
+            }
         });
         req.end();
     };
@@ -107,6 +115,9 @@ app.get('/logon', function (request, response) {
             res.on('end', function () {
                 callback(html);
             });
+        });
+        req.on('error', function(){
+            console.log('postfollow ' + paras.id);
         });
         req.end();
     };
@@ -130,7 +141,7 @@ app.get('/logon', function (request, response) {
                             auth = (regres[1]);
                         }
                     }
-                    for (var uid = 4576; uid < 4586; ++uid) {
+                    for (var uid = 4000; uid < 4500; ++uid) {
                         getuser({
                             id: uid,
                             cookie: '.AUTH=' + auth + ';'
@@ -147,7 +158,7 @@ app.get('/logon', function (request, response) {
                                                 id: uid,
                                                 cookie: '.AUTH=' + auth + ';'
                                             }, function (followres) {
-                                                console.log(followres);
+                                                console.log('followres ' + uid);
                                             });
                                         } else {
                                             console.log(uid);
@@ -155,7 +166,7 @@ app.get('/logon', function (request, response) {
                                     }
                                 }
                             });
-                        });
+                        }, 0);
                     }
                     response.send('followd');
 
