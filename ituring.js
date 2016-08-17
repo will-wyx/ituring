@@ -1,7 +1,14 @@
-var express = require('express');
-var http = require('http');
-var querystring = require('querystring');
-var jsdom = require('jsdom');
+// var express = require('express');
+// var http = require('http');
+// var querystring = require('querystring');
+// var jsdom = require('jsdom');
+var iproxy = require('./proxy.js');
+
+iproxy.test(function (result) {
+    // console.log(result);
+});
+
+return;
 
 
 var app = express();
@@ -152,7 +159,7 @@ app.get('/logon', function (request, response) {
             });
         });
         req.on('error', function () {
-            if(count < 10) {
+            if (count < 10) {
                 console.log('errorfollow ' + count++);
                 postfollow(paras, callback, count);
             } else {
